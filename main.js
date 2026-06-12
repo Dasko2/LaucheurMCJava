@@ -1,11 +1,12 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs-extra');
-const { Client, Authenticator } = require('minecraft-launcher-core');
 const axios = require('axios');
+const { Client } = require('minecraft-launcher-core');
+const { Auth } = require('msmc');
 
-const GAME_ROOT = path.join(app.getPath('userData'), 'minecraft');
-const MODS_DIR = path.join(GAME_ROOT, 'mods');
+const GAME_DIR = path.join(app.getPath('userData'), 'minecraft');
+const MODS_DIR = path.join(GAME_DIR, 'mods');
 const LAUNCHER_MODS = path.join(__dirname, 'mods');
 
 const FABRIC_API = 'https://meta.fabricmc.net/v2';
@@ -16,22 +17,12 @@ const FABRIC = {
   '1.18.2': '0.14.25'
 };
 
-// MODS MAP (IMPORTANT FIX CASE)
-const MODS = {
-  fullbright: 'lambdadynamiclights',
-  nofog: 'fabricskyboxes',
-  clearlava: 'cleardespawn',
-  hudfps: 'sodium',
-  hudcps: 'clickrmod',
-  playerhealth: 'appleskin'
-};
-
 let win;
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 950,
-    height: 580,
+    width: 1000,
+    height: 650,
     frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -40,20 +31,17 @@ function createWindow() {
   });
 
   win.loadFile('index.html');
-
-  if (process.argv.includes('--dev')) {
-    win.webContents.openDevTools();
-  }
 }
 
 app.whenReady().then(async () => {
-  await fs.ensureDir(GAME_ROOT);
+  await fs.ensureDir(GAME_DIR);
   await fs.ensureDir(MODS_DIR);
   await fs.ensureDir(LAUNCHER_MODS);
   createWindow();
 });
 
-// ───── LOGS ─────
+// ───────────────────────── LOG SYSTEM ─────────────────────────
+
 function log(msg, type = 'info') {
   win?.webContents.send('log', {
     message: msg,
@@ -66,18 +54,16 @@ function progress(p, label) {
   win?.webContents.send('progress', { percent: p, label });
 }
 
-// ───── MODS SYNC ─────
+// ───────────────────────── MOD LOADER (CURSEFORGE STYLE) ─────────────────────────
+
 async function syncMods(enabled) {
   await fs.emptyDir(MODS_DIR);
 
-  for (const key of enabled) {
-    const prefix = MODS[key];
-    if (!prefix) continue;
+  const files = await fs.readdir(LAUNCHER_MODS).catch(() => []);
 
-    const files = await fs.readdir(LAUNCHER_MODS).catch(() => []);
-
+  for (const mod of enabled) {
     const match = files.find(f =>
-      f.toLowerCase().startsWith(prefix.toLowerCase())
+      f.toLowerCase().includes(mod.toLowerCase())
     );
 
     if (match) {
@@ -85,25 +71,27 @@ async function syncMods(enabled) {
         path.join(LAUNCHER_MODS, match),
         path.join(MODS_DIR, match)
       );
-      log(`Mod copié: ${match}`, 'success');
+      log(`Mod activé: ${match}`, 'success');
     }
   }
 }
 
-// ───── FABRIC FIX PRO ─────
+// ───────────────────────── FABRIC AUTO INSTALL ─────────────────────────
+
 async function installFabric(version) {
   const loader = FABRIC[version];
   if (!loader) return null;
 
   const id = `fabric-loader-${loader}-${version}`;
-  const dir = path.join(GAME_ROOT, 'versions', id);
+  const dir = path.join(GAME_DIR, 'versions', id);
   const file = path.join(dir, `${id}.json`);
 
   if (await fs.pathExists(file)) return id;
 
   await fs.ensureDir(dir);
 
-  const url = `${FABRIC_API}/versions/loader/${version}/${loader}/profile/json`;
+  const url =
+    `${FABRIC_API}/versions/loader/${version}/${loader}/profile/json`;
 
   const res = await axios.get(url);
 
@@ -112,23 +100,41 @@ async function installFabric(version) {
   return id;
 }
 
-// ───── LAUNCH ─────
+// ───────────────────────── MICROSOFT LOGIN (ULTRA FIX) ─────────────────────────
+
+async function microsoftLogin() {
+  const authManager = new Auth("select_account");
+  const xbox = await authManager.launch("electron");
+  return await xbox.getMinecraft();
+}
+
+// ───────────────────────── LAUNCH GAME ─────────────────────────
+
 ipcMain.handle('launch:game', async (_, data) => {
   try {
-    const { username, version, enabledMods, ram } = data;
+    const { username, version, enabledMods, ram, online } = data;
 
-    log('Lancement...');
+    log('Lancement Ultra Launcher...');
 
     await syncMods(enabledMods);
+
     const fabric = await installFabric(version);
 
-    const auth = Authenticator.getAuth(username);
+    // 🔥 MICROSOFT OR OFFLINE
+    let auth;
+
+    if (online) {
+      auth = await microsoftLogin();
+    } else {
+      const { Authenticator } = require('minecraft-launcher-core');
+      auth = Authenticator.getAuth(username);
+    }
 
     const launcher = new Client();
 
     const opts = {
       authorization: auth,
-      root: GAME_ROOT,
+      root: GAME_DIR,
       version: {
         number: version,
         type: 'release',
@@ -142,6 +148,13 @@ ipcMain.handle('launch:game', async (_, data) => {
 
     launcher.on('data', d => log(d));
 
+    launcher.on('progress', e => {
+      progress(
+        Math.floor((e.task / e.total) * 100),
+        `${e.type}`
+      );
+    });
+
     await launcher.launch(opts);
 
     return { success: true };
@@ -152,20 +165,22 @@ ipcMain.handle('launch:game', async (_, data) => {
   }
 });
 
-// ───── MOD LIST ─────
+// ───────────────────────── MODS LIST ─────────────────────────
+
 ipcMain.handle('mods:list', async () => {
   return (await fs.readdir(LAUNCHER_MODS).catch(() => []))
     .filter(f => f.endsWith('.jar'));
 });
 
-// ───── OPEN MODS ─────
-ipcMain.handle('mods:open-folder', async () => {
+// ───────────────────────── OPEN MODS ─────────────────────────
+
+ipcMain.handle('mods:open-folder', () => {
   shell.openPath(LAUNCHER_MODS);
 });
 
-// ───── INFO ─────
+// ───────────────────────── INFO ─────────────────────────
+
 ipcMain.handle('app:info', () => ({
-  gameRoot: GAME_ROOT,
-  modsDir: MODS_DIR,
-  version: app.getVersion()
+  gameRoot: GAME_DIR,
+  modsDir: MODS_DIR
 }));
