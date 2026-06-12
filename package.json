@@ -6,9 +6,15 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder --win --mac --linux"
+    "build": "electron-builder --win"
   },
-  "keywords": ["minecraft", "launcher", "java", "fabric", "electron"],
+  "keywords": [
+    "minecraft",
+    "launcher",
+    "java",
+    "fabric",
+    "electron"
+  ],
   "author": "LaucheurJava",
   "license": "MIT",
   "dependencies": {
@@ -24,7 +30,6 @@
   "build": {
     "appId": "com.laucheurjava.launcher",
     "productName": "LaucheurJava",
-    "icon": "assets/icons/icon",
     "files": [
       "**/*",
       "!node_modules/.cache",
@@ -34,16 +39,7 @@
       "output": "dist"
     },
     "win": {
-      "target": "nsis",
-      "icon": "assets/icons/icon.ico"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "assets/icons/icon.icns"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "assets/icons/icon.png"
+      "target": "nsis"
     }
   }
 }
