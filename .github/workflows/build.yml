@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Electron app
+      - name: Build Electron app (Windows)
         run: npx electron-builder --win
 
       - name: Upload build artifact
