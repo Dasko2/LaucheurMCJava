@@ -1,0 +1,49 @@
+{
+  "name": "laucheurjava",
+  "version": "1.0.0",
+  "description": "Launcher Minecraft Java - Mode Offline avec support Fabric",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --win --mac --linux"
+  },
+  "keywords": ["minecraft", "launcher", "java", "fabric", "electron"],
+  "author": "LaucheurJava",
+  "license": "MIT",
+  "dependencies": {
+    "minecraft-launcher-core": "^3.5.2",
+    "fs-extra": "^11.2.0",
+    "axios": "^1.6.7",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.laucheurjava.launcher",
+    "productName": "LaucheurJava",
+    "icon": "assets/icons/icon",
+    "files": [
+      "**/*",
+      "!node_modules/.cache",
+      "!*.log"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icons/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icons/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icons/icon.png"
+    }
+  }
+}

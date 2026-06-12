@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <!--
+    index.html — Interface principale du launcher LaucheurJava
+    Inspiré du style Lunar Client : fond sombre, accents bleu/violet,
+    typographie propre et mise en page structurée.
+  -->
+  <title>LaucheurJava</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       BARRE DE TITRE PERSONNALISÉE
+       (frame: false dans main.js → on gère les boutons soi-même)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="titlebar" id="titlebar">
+    <div class="titlebar-drag-region"></div>
+
+    <!-- Logo + nom de l'app -->
+    <div class="titlebar-brand">
+      <svg class="titlebar-logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="9" height="9" rx="1" fill="#5b8af0"/>
+        <rect x="13" y="2" width="9" height="9" rx="1" fill="#8b5cf6"/>
+        <rect x="2" y="13" width="9" height="9" rx="1" fill="#8b5cf6"/>
+        <rect x="13" y="13" width="9" height="9" rx="1" fill="#5b8af0"/>
+      </svg>
+      <span class="titlebar-title">LaucheurJava</span>
+    </div>
+
+    <!-- Boutons système (réduire / agrandir / fermer) -->
+    <div class="titlebar-controls">
+      <button class="titlebar-btn" id="btn-minimize" title="Réduire">
+        <svg viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+      </button>
+      <button class="titlebar-btn" id="btn-maximize" title="Agrandir">
+        <svg viewBox="0 0 10 10"><rect width="9" height="9" x=".5" y=".5" fill="none" stroke="currentColor"/></svg>
+      </button>
+      <button class="titlebar-btn close" id="btn-close" title="Fermer">
+        <svg viewBox="0 0 10 10">
+          <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" stroke-width="1.2"/>
+          <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       LAYOUT PRINCIPAL
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="app-layout">
+
+    <!-- ── SIDEBAR GAUCHE ── -->
+    <aside class="sidebar">
+
+      <!-- Avatar / icône utilisateur -->
+      <div class="sidebar-avatar">
+        <div class="avatar-ring">
+          <svg class="avatar-icon" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="8" r="4" fill="#5b8af0"/>
+            <path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" stroke="#5b8af0" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Champ pseudo -->
+      <div class="sidebar-field">
+        <label class="field-label" for="username">
+          <svg class="label-icon" viewBox="0 0 16 16" fill="none">
+            <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-5 6a5 5 0 0110 0H3z" fill="currentColor"/>
+          </svg>
+          Pseudo
+        </label>
+        <input
+          id="username"
+          type="text"
+          class="field-input"
+          placeholder="Entrez votre pseudo"
+          maxlength="16"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="field-hint">Mode Offline · Microsoft Login à venir</div>
+      </div>
+
+      <!-- Sélecteur de version -->
+      <div class="sidebar-field">
+        <label class="field-label" for="version-select">
+          <svg class="label-icon" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor"/>
+            <rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/>
+            <rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/>
+            <rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor"/>
+          </svg>
+          Version
+        </label>
+        <div class="version-selector">
+          <label class="version-option" data-version="1.20.1">
+            <input type="radio" name="version" value="1.20.1" checked />
+            <span class="version-card">
+              <span class="version-num">1.20.1</span>
+              <span class="version-tag">Trails &amp; Tales</span>
+            </span>
+          </label>
+          <label class="version-option" data-version="1.19.4">
+            <input type="radio" name="version" value="1.19.4" />
+            <span class="version-card">
+              <span class="version-num">1.19.4</span>
+              <span class="version-tag">Wild Update</span>
+            </span>
+          </label>
+          <label class="version-option" data-version="1.18.2">
+            <input type="radio" name="version" value="1.18.2" />
+            <span class="version-card">
+              <span class="version-num">1.18.2</span>
+              <span class="version-tag">Caves &amp; Cliffs</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- RAM slider -->
+      <div class="sidebar-field">
+        <label class="field-label" for="ram-slider">
+          <svg class="label-icon" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="5" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="3" y="7" width="2" height="2" fill="currentColor"/>
+            <rect x="7" y="7" width="2" height="2" fill="currentColor"/>
+            <rect x="11" y="7" width="2" height="2" fill="currentColor"/>
+          </svg>
+          RAM allouée : <span id="ram-label">4 Go</span>
+        </label>
+        <input type="range" id="ram-slider" class="ram-slider" min="2" max="16" step="1" value="4" />
+        <div class="ram-marks">
+          <span>2</span><span>4</span><span>6</span><span>8</span><span>10</span><span>12</span><span>14</span><span>16</span>
+        </div>
+      </div>
+
+      <!-- Infos du dossier jeu -->
+      <div class="sidebar-info" id="sidebar-info">
+        <span class="info-dot"></span>
+        <span id="info-text">Chargement...</span>
+      </div>
+
+      <!-- Bouton Ouvrir dossier mods -->
+      <button class="btn-secondary" id="btn-open-mods" title="Ouvrir le dossier mods dans l'explorateur">
+        <svg viewBox="0 0 16 16" fill="none">
+          <path d="M2 3h5l1.5 2H14a1 1 0 011 1v7a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+        Dossier mods
+      </button>
+
+    </aside>
+
+    <!-- ── CONTENU PRINCIPAL ── -->
+    <main class="main-content">
+
+      <!-- Bannière avec artwork -->
+      <div class="hero-banner">
+        <div class="hero-grid" aria-hidden="true">
+          <!-- Grille de blocs Minecraft en CSS -->
+          <div class="block grass"></div>
+          <div class="block dirt"></div>
+          <div class="block stone"></div>
+          <div class="block grass"></div>
+          <div class="block stone"></div>
+          <div class="block dirt"></div>
+          <div class="block grass"></div>
+          <div class="block stone"></div>
+        </div>
+        <div class="hero-content">
+          <h1 class="hero-title">Jouer maintenant</h1>
+          <p class="hero-sub">Fabric · Mode Offline · Mods personnalisés</p>
+        </div>
+      </div>
+
+      <!-- Section options / mods -->
+      <section class="options-section">
+        <h2 class="section-title">
+          <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+            <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.22 3.22l1.41 1.41M11.36 11.36l1.42 1.42M11.36 3.22l-1.41 1.41M4.64 11.36l-1.42 1.42" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          Options &amp; Mods Fabric
+        </h2>
+        <p class="section-desc">
+          Activez les mods Fabric que vous souhaitez utiliser.
+          Placez les fichiers <code>.jar</code> dans le dossier <strong>mods/</strong>.
+        </p>
+
+        <!-- Grille des options (toggles) -->
+        <div class="options-grid" id="options-grid">
+
+          <!-- FullBright -->
+          <div class="option-card" data-mod="fullbright">
+            <div class="option-header">
+              <div class="option-info">
+                <span class="option-name">FullBright</span>
+                <span class="option-mod-name">LambDynamicLights</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" class="mod-toggle" data-key="fullbright" />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+            <p class="option-desc">Éclairage dynamique maximum — voyez dans le noir sans torches.</p>
+            <div class="option-status" id="status-fullbright">
+              <span class="status-dot unavailable"></span>
+              <span class="status-text">JAR non trouvé dans mods/</span>
+            </div>
+          </div>
+
+          <!-- NoFog -->
+          <div class="option-card" data-mod="nofog">
+            <div class="option-header">
+              <div class="option-info">
+                <span class="option-name">NoFog</span>
+                <span class="option-mod-name">FabricSkyboxes</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" class="mod-toggle" data-key="nofog" />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+            <p class="option-desc">Supprime le brouillard de distance pour une visibilité maximale.</p>
+            <div class="option-status" id="status-nofog">
+              <span class="status-dot unavailable"></span>
+              <span class="status-text">JAR non trouvé dans mods/</span>
+            </div>
+          </div>
+
+          <!-- ClearLava -->
+          <div class="option-card" data-mod="clearlava">
+            <div class="option-header">
+              <div class="option-info">
+                <span class="option-name">ClearLava</span>
+                <span class="option-mod-name">ClearDespawn</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" class="mod-toggle" data-key="clearlava" />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+            <p class="option-desc">Lava transparente et items visibles avant disparition.</p>
+            <div class="option-status" id="status-clearlava">
+              <span class="status-dot unavailable"></span>
+              <span class="status-text">JAR non trouvé dans mods/</span>
+            </div>
+          </div>
+
+          <!-- HUD FPS -->
+          <div class="option-card" data-mod="hudFPS">
+            <div class="option-header">
+              <div class="option-info">
+                <span class="option-name">HUD FPS</span>
+                <span class="option-mod-name">Sodium</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" class="mod-toggle" data-key="hudFPS" />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+            <p class="option-desc">Affiche les FPS en temps réel + optimisation graphique majeure.</p>
+            <div class="option-status" id="status-hudFPS">
+              <span class="status-dot unavailable"></span>
+              <span class="status-text">JAR non trouvé dans mods/</span>
+            </div>
+          </div>
+
+          <!-- HUD CPS -->
+          <div class="option-card" data-mod="hudCPS">
+            <div class="option-header">
+              <div class="option-info">
+                <span class="option-name">HUD CPS</span>
+                <span class="option-mod-name">ClickrMod</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" class="mod-toggle" data-key="hudCPS" />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+            <p class="option-desc">Affiche les clics par seconde (CPS) pour le PVP.</p>
+            <div class="option-status" id="status-hudCPS">
+              <span class="status-dot unavailable"></span>
+              <span class="status-text">JAR non trouvé dans mods/</span>
+            </div>
+          </div>
+
+          <!-- Player Health -->
+          <div class="option-card" data-mod="playerHealth">
+            <div class="option-header">
+              <div class="option-info">
+                <span class="option-name">Player Health</span>
+                <span class="option-mod-name">AppleSkin</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" class="mod-toggle" data-key="playerHealth" />
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+            <p class="option-desc">Affiche la santé et la saturation détaillées sur le HUD.</p>
+            <div class="option-status" id="status-playerHealth">
+              <span class="status-dot unavailable"></span>
+              <span class="status-text">JAR non trouvé dans mods/</span>
+            </div>
+          </div>
+
+        </div><!-- /options-grid -->
+      </section>
+
+    </main>
+
+    <!-- ── PANNEAU DROIT : console + bouton PLAY ── -->
+    <aside class="right-panel">
+
+      <!-- Console de logs -->
+      <div class="console-panel">
+        <div class="console-header">
+          <span class="console-title">
+            <svg viewBox="0 0 14 10" fill="none" width="12">
+              <path d="M1 1l4 4-4 4M7 9h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Console
+          </span>
+          <button class="btn-clear-console" id="btn-clear-log" title="Effacer la console">✕</button>
+        </div>
+        <div class="console-body" id="console-body">
+          <div class="log-line log-info">
+            <span class="log-time">--:--:--</span>
+            <span class="log-msg">Bienvenue dans LaucheurJava. Entrez votre pseudo et appuyez sur PLAY.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barre de progression -->
+      <div class="progress-wrapper" id="progress-wrapper">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+        <div class="progress-label" id="progress-label"></div>
+      </div>
+
+      <!-- Bouton PLAY -->
+      <button class="btn-play" id="btn-play">
+        <span class="btn-play-icon">
+          <svg viewBox="0 0 20 20" fill="none">
+            <polygon points="5,3 17,10 5,17" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="btn-play-text">PLAY</span>
+      </button>
+
+      <!-- Mods actifs résumé -->
+      <div class="active-mods-summary" id="active-mods-summary">
+        <span id="active-mods-count">0 mod(s) activé(s)</span>
+      </div>
+
+    </aside>
+
+  </div><!-- /app-layout -->
+
+  <!-- Overlay de chargement pendant le lancement -->
+  <div class="launch-overlay" id="launch-overlay">
+    <div class="launch-spinner"></div>
+    <div class="launch-overlay-text" id="launch-overlay-text">Lancement en cours...</div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
