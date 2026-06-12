@@ -1,14 +1,10 @@
-'use strict';
-
 const $username = document.getElementById('username');
 const $ram = document.getElementById('ram-slider');
 const $btn = document.getElementById('btn-play');
 
 let mods = new Set();
 
-window.launcher.onLog(d => {
-  console.log(d.message);
-});
+window.launcher.onLog(d => console.log(d.message));
 
 window.launcher.onProgress(d => {
   document.getElementById('progress-fill').style.width = d.percent + '%';
@@ -26,10 +22,8 @@ $btn.onclick = async () => {
     version,
     enabledMods: [...mods],
     ram,
-    online: true // 🔥 CURSEFORGE MODE = Microsoft ON
+    online: true
   });
 
-  if (!res.success) {
-    console.error(res.error);
-  }
+  if (!res.success) console.error(res.error);
 };
