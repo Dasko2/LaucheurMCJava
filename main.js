@@ -2,191 +2,182 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs-extra');
 const { Client, Authenticator } = require('minecraft-launcher-core');
-const https = require('https');
+const axios = require('axios');
 
-// ─── CHEMINS ─────────────────────────────────────────────
 const GAME_ROOT = path.join(app.getPath('userData'), 'minecraft');
-const LAUNCHER_MODS_DIR = path.join(__dirname, 'mods');
-const MC_MODS_DIR = path.join(GAME_ROOT, 'mods');
+const MODS_DIR = path.join(GAME_ROOT, 'mods');
+const LAUNCHER_MODS = path.join(__dirname, 'mods');
 
-const FABRIC_META_URL = 'https://meta.fabricmc.net/v2';
+const FABRIC_API = 'https://meta.fabricmc.net/v2';
 
-const FABRIC_LOADER_VERSIONS = {
+const FABRIC = {
   '1.20.1': '0.15.11',
   '1.19.4': '0.15.11',
-  '1.18.2': '0.14.25',
+  '1.18.2': '0.14.25'
 };
 
-// ─── MODS ───────────────────────────────────────────────
-const MOD_MAP = {
-  fullbright: { file: 'LambdaDynamicLights', label: 'FullBright' },
-  nofog: { file: 'FabricSkyboxes', label: 'NoFog' },
-  clearlava: { file: 'ClearDespawn', label: 'ClearLava' },
-  hudFPS: { file: 'Sodium', label: 'HUD FPS' },
-  hudCPS: { file: 'ClickrMod', label: 'HUD CPS' },
-  playerHealth: { file: 'AppleSkin', label: 'Player Health' }
+const MODS = {
+  fullbright: 'lambdadynamiclights',
+  nofog: 'fabricskyboxes',
+  clearlava: 'cleardespawn',
+  hudfps: 'sodium',
+  hudcps: 'clickrmod',
+  playerhealth: 'appleskin'
 };
 
-// ─── WINDOW ─────────────────────────────────────────────
-let mainWindow;
+let win;
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  win = new BrowserWindow({
     width: 950,
     height: 580,
-    minWidth: 800,
-    minHeight: 500,
     frame: false,
-    backgroundColor: '#0d1117',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
+      contextIsolation: true
     }
   });
 
-  mainWindow.loadFile('index.html');
-
-  if (process.argv.includes('--dev')) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
-
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith('file://')) {
-      event.preventDefault();
-      shell.openExternal(url);
-    }
-  });
+  win.loadFile('index.html');
 }
 
-// ─── APP INIT ───────────────────────────────────────────
 app.whenReady().then(async () => {
   await fs.ensureDir(GAME_ROOT);
-  await fs.ensureDir(MC_MODS_DIR);
-  await fs.ensureDir(LAUNCHER_MODS_DIR);
+  await fs.ensureDir(MODS_DIR);
+  await fs.ensureDir(LAUNCHER_MODS);
   createWindow();
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-// ─── LOGS ───────────────────────────────────────────────
-function sendLog(msg, type = 'info') {
-  if (!mainWindow) return;
-  mainWindow.webContents.send('log', {
+// ───────────────────────── LOGS ─────────────────────────
+function log(msg, type = 'info') {
+  win?.webContents.send('log', {
     message: msg,
     type,
     time: new Date().toLocaleTimeString()
   });
 }
 
-function sendProgress(percent, label = '') {
-  if (!mainWindow) return;
-  mainWindow.webContents.send('progress', { percent, label });
+function progress(p, label) {
+  win?.webContents.send('progress', { percent: p, label });
 }
 
-// ─── MOD SYNC ───────────────────────────────────────────
+// ───────────────────────── MODS ─────────────────────────
 async function syncMods(enabled) {
-  await fs.emptyDir(MC_MODS_DIR);
+  await fs.emptyDir(MODS_DIR);
 
-  for (const opt of enabled) {
-    const mod = MOD_MAP[opt];
-    if (!mod) continue;
+  for (const key of enabled) {
+    const prefix = MODS[key];
+    if (!prefix) continue;
 
-    const files = await fs.readdir(LAUNCHER_MODS_DIR).catch(() => []);
+    const files = await fs.readdir(LAUNCHER_MODS).catch(() => []);
+
     const match = files.find(f =>
-      f.toLowerCase().startsWith(mod.file.toLowerCase()) && f.endsWith('.jar')
+      f.toLowerCase().startsWith(prefix.toLowerCase())
     );
 
     if (match) {
       await fs.copy(
-        path.join(LAUNCHER_MODS_DIR, match),
-        path.join(MC_MODS_DIR, match)
+        path.join(LAUNCHER_MODS, match),
+        path.join(MODS_DIR, match)
       );
-      sendLog(`Mod copié : ${match}`, 'success');
-    } else {
-      sendLog(`Mod manquant : ${mod.label}`, 'warn');
+      log(`Mod copié : ${match}`, 'success');
     }
   }
 }
 
-// ─── FABRIC ─────────────────────────────────────────────
+// ───────────────────────── FABRIC (FIX PRO) ─────────────────────────
 async function installFabric(version) {
-  const loader = FABRIC_LOADER_VERSIONS[version];
+  const loader = FABRIC[version];
   if (!loader) return null;
 
   const id = `fabric-loader-${loader}-${version}`;
-  const file = path.join(GAME_ROOT, 'versions', id, `${id}.json`);
+  const dir = path.join(GAME_ROOT, 'versions', id);
 
-  if (await fs.pathExists(file)) return id;
+  const jsonFile = path.join(dir, `${id}.json`);
 
-  await fs.ensureDir(path.dirname(file));
+  if (await fs.pathExists(jsonFile)) return id;
 
-  const url = `${FABRIC_META_URL}/versions/loader/${version}/${loader}/profile/json`;
-  const data = await fetch(url).then(r => r.json());
+  await fs.ensureDir(dir);
 
-  await fs.writeJson(file, data, { spaces: 2 });
+  const url = `${FABRIC_API}/versions/loader/${version}/${loader}/profile/json`;
+
+  const res = await axios.get(url);
+  await fs.writeJson(jsonFile, res.data, { spaces: 2 });
 
   return id;
 }
 
-// ─── LAUNCH ─────────────────────────────────────────────
-ipcMain.handle('launch:game', async (e, { username, version, enabledMods, ram }) => {
+// ───────────────────────── MICROSOFT LOGIN ─────────────────────────
+async function getAuth(username, useMicrosoft = false) {
+  if (useMicrosoft) {
+    // Microsoft auth (fallback offline si erreur)
+    try {
+      return await Authenticator.getAuth({ scopes: ["user.read"] });
+    } catch {
+      log("Microsoft login failed → fallback offline", "warn");
+    }
+  }
+
+  return Authenticator.getAuth(username);
+}
+
+// ───────────────────────── LAUNCH ─────────────────────────
+ipcMain.handle('launch:game', async (_, data) => {
   try {
-    sendLog('Démarrage...', 'info');
+    const { username, version, enabledMods, ram, microsoft } = data;
+
+    log("Démarrage launcher...");
 
     await syncMods(enabledMods);
     const fabric = await installFabric(version);
 
+    const auth = await getAuth(username, microsoft);
+
     const launcher = new Client();
 
-    const auth = Authenticator.getAuth(username);
-
-    const options = {
+    const opts = {
       authorization: auth,
       root: GAME_ROOT,
       version: {
         number: version,
-        type: 'release',
+        type: "release",
         ...(fabric ? { custom: fabric } : {})
       },
       memory: {
         max: `${ram}G`,
-        min: `${Math.max(1, Math.floor(ram / 2))}G`
+        min: `${Math.max(1, ram / 2)}G`
       }
     };
 
-    launcher.on('debug', d => sendLog(d));
-    launcher.on('data', d => sendLog(d));
+    launcher.on('data', d => log(d));
 
-    sendProgress(30, 'Lancement...');
-    await launcher.launch(options);
+    progress(30, "Lancement...");
+    await launcher.launch(opts);
 
-    sendProgress(100, 'OK');
+    progress(100, "OK");
+
     return { success: true };
 
-  } catch (err) {
-    sendLog(err.message, 'error');
-    return { success: false, error: err.message };
+  } catch (e) {
+    log(e.message, "error");
+    return { success: false, error: e.message };
   }
 });
 
-// ─── MODS LIST ──────────────────────────────────────────
+// ───────────────────────── MOD LIST ─────────────────────────
 ipcMain.handle('mods:list', async () => {
-  return (await fs.readdir(LAUNCHER_MODS_DIR).catch(() => []))
+  return (await fs.readdir(LAUNCHER_MODS).catch(() => []))
     .filter(f => f.endsWith('.jar'));
 });
 
-// ─── OPEN MOD FOLDER ────────────────────────────────────
-ipcMain.handle('mods:open', async () => {
-  shell.openPath(LAUNCHER_MODS_DIR);
+// ───────────────────────── OPEN MODS ─────────────────────────
+ipcMain.handle('mods:open-folder', async () => {
+  shell.openPath(LAUNCHER_MODS);
 });
 
-// ─── INFO APP ───────────────────────────────────────────
+// ───────────────────────── INFO ─────────────────────────
 ipcMain.handle('app:info', () => ({
   gameRoot: GAME_ROOT,
-  modsDir: LAUNCHER_MODS_DIR,
-  platform: process.platform,
+  modsDir: MODS_DIR,
   version: app.getVersion()
 }));
