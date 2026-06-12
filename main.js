@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs-extra');
 const axios = require('axios');
-const { Client } = require('minecraft-launcher-core');
+const { Client, Authenticator } = require('minecraft-launcher-core');
 const { Auth } = require('msmc');
 
 const GAME_DIR = path.join(app.getPath('userData'), 'minecraft');
@@ -40,24 +40,58 @@ app.whenReady().then(async () => {
   createWindow();
 });
 
-// ───────────────────────── LOG SYSTEM ─────────────────────────
+// ───────────────── LOG SYSTEM ─────────────────
 
-function log(msg, type = 'info') {
+function log(message, type = 'info') {
   win?.webContents.send('log', {
-    message: msg,
+    message,
     type,
     time: new Date().toLocaleTimeString()
   });
 }
 
-function progress(p, label) {
-  win?.webContents.send('progress', { percent: p, label });
+function progress(percent, label) {
+  win?.webContents.send('progress', { percent, label });
 }
 
-// ───────────────────────── MOD LOADER (CURSEFORGE STYLE) ─────────────────────────
+// ───────────────── MODRINTH API (AUTO DOWNLOAD MODS) ─────────────────
+
+async function downloadModrinth(modSlug) {
+  try {
+    const url = `https://api.modrinth.com/v2/project/${modSlug}/version`;
+
+    const res = await axios.get(url);
+
+    const fileUrl = res.data[0].files[0].url;
+    const fileName = res.data[0].files[0].filename;
+
+    const filePath = path.join(LAUNCHER_MODS, fileName);
+
+    const writer = require('fs').createWriteStream(filePath);
+
+    const stream = await axios({
+      url: fileUrl,
+      method: 'GET',
+      responseType: 'stream'
+    });
+
+    stream.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+      writer.on('finish', () => resolve(fileName));
+      writer.on('error', reject);
+    });
+
+  } catch (e) {
+    log(`Mod download error: ${modSlug}`, 'error');
+  }
+}
+
+// ───────────────── MOD SYNC (CURSEFORGE STYLE) ─────────────────
 
 async function syncMods(enabled) {
-  await fs.emptyDir(MODS_DIR);
+  await fs.ensureDir(MODS_DIR);
+  await fs.ensureDir(LAUNCHER_MODS);
 
   const files = await fs.readdir(LAUNCHER_MODS).catch(() => []);
 
@@ -71,12 +105,13 @@ async function syncMods(enabled) {
         path.join(LAUNCHER_MODS, match),
         path.join(MODS_DIR, match)
       );
+
       log(`Mod activé: ${match}`, 'success');
     }
   }
 }
 
-// ───────────────────────── FABRIC AUTO INSTALL ─────────────────────────
+// ───────────────── FABRIC INSTALL ─────────────────
 
 async function installFabric(version) {
   const loader = FABRIC[version];
@@ -90,8 +125,7 @@ async function installFabric(version) {
 
   await fs.ensureDir(dir);
 
-  const url =
-    `${FABRIC_API}/versions/loader/${version}/${loader}/profile/json`;
+  const url = `${FABRIC_API}/versions/loader/${version}/${loader}/profile/json`;
 
   const res = await axios.get(url);
 
@@ -100,33 +134,33 @@ async function installFabric(version) {
   return id;
 }
 
-// ───────────────────────── MICROSOFT LOGIN (ULTRA FIX) ─────────────────────────
+// ───────────────── MICROSOFT LOGIN (ULTIMATE) ─────────────────
 
 async function microsoftLogin() {
-  const authManager = new Auth("select_account");
-  const xbox = await authManager.launch("electron");
+  const auth = new Auth("select_account");
+  const xbox = await auth.launch("electron");
   return await xbox.getMinecraft();
 }
 
-// ───────────────────────── LAUNCH GAME ─────────────────────────
+// ───────────────── LAUNCH GAME ─────────────────
 
 ipcMain.handle('launch:game', async (_, data) => {
   try {
     const { username, version, enabledMods, ram, online } = data;
 
-    log('Lancement Ultra Launcher...');
+    log('ULTIMATE LAUNCH START');
 
     await syncMods(enabledMods);
 
     const fabric = await installFabric(version);
 
-    // 🔥 MICROSOFT OR OFFLINE
     let auth;
 
     if (online) {
+      log('Microsoft login...');
       auth = await microsoftLogin();
     } else {
-      const { Authenticator } = require('minecraft-launcher-core');
+      log('Offline mode');
       auth = Authenticator.getAuth(username);
     }
 
@@ -142,18 +176,14 @@ ipcMain.handle('launch:game', async (_, data) => {
       },
       memory: {
         max: `${ram}G`,
-        min: `${Math.max(1, ram / 2)}G`
+        min: `${Math.max(2, ram / 2)}G`
       }
     };
 
     launcher.on('data', d => log(d));
-
-    launcher.on('progress', e => {
-      progress(
-        Math.floor((e.task / e.total) * 100),
-        `${e.type}`
-      );
-    });
+    launcher.on('progress', e =>
+      progress(Math.floor((e.task / e.total) * 100), e.type)
+    );
 
     await launcher.launch(opts);
 
@@ -165,20 +195,20 @@ ipcMain.handle('launch:game', async (_, data) => {
   }
 });
 
-// ───────────────────────── MODS LIST ─────────────────────────
+// ───────────────── MOD LIST ─────────────────
 
 ipcMain.handle('mods:list', async () => {
   return (await fs.readdir(LAUNCHER_MODS).catch(() => []))
     .filter(f => f.endsWith('.jar'));
 });
 
-// ───────────────────────── OPEN MODS ─────────────────────────
+// ───────────────── OPEN MODS ─────────────────
 
 ipcMain.handle('mods:open-folder', () => {
   shell.openPath(LAUNCHER_MODS);
 });
 
-// ───────────────────────── INFO ─────────────────────────
+// ───────────────── INFO ─────────────────
 
 ipcMain.handle('app:info', () => ({
   gameRoot: GAME_DIR,
