@@ -1,6 +1,6 @@
 {
-  "name": "laucheurjava-ultra",
-  "version": "2.0.0",
+  "name": "laucheurjava-ultimate",
+  "version": "3.0.0",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -8,18 +8,18 @@
     "build": "electron-builder --win"
   },
   "dependencies": {
+    "electron": "^31.0.0",
     "minecraft-launcher-core": "^3.5.2",
     "fs-extra": "^11.2.0",
     "axios": "^1.6.7",
     "msmc": "^5.0.5"
   },
   "devDependencies": {
-    "electron": "^31.0.0",
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.laucheurjava.ultra",
-    "productName": "LaucheurJava Ultra",
+    "appId": "com.ultimate.launcher",
+    "productName": "Ultimate Launcher",
     "directories": {
       "output": "dist"
     },
